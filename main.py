@@ -123,7 +123,7 @@ class FooBar:
     bar_id: int = field(metadata={'sa': Column(ForeignKey('bar.id'), primary_key=True)})
 
 
-def run_1(engine):
+def populate_tables(engine):
     with Session(engine) as session:
         foo = Foo(some_column='foo_1')
         bar_1 = Bar(another_column='bar_1')
@@ -136,7 +136,7 @@ def run_1(engine):
         session.commit()
 
 
-def run_2(engine):
+def remove_second_item(engine):
     with Session(engine) as session:
         foo = session.query(Foo).first()
         bar_2 = session.query(Bar).filter(Bar.another_column == 'bar_2').first()
@@ -145,7 +145,7 @@ def run_2(engine):
         session.commit()
 
 
-def run_3(engine):
+def remove_first_item(engine):
     with Session(engine) as session:
         foo = session.query(Foo).first()
         bar_1 = session.query(Bar).filter(Bar.another_column == 'bar_1').first()
@@ -154,25 +154,34 @@ def run_3(engine):
         session.commit()
 
 
-def run_4(engine):
-    with Session(engine) as session:
-        foo = session.query(Foo).first()
-        if foo.bars:
-            for bar in foo.bars:
-                print(bar.another_column)
-        else:
-            print('bars are empty')
-
-
 def main():
     engine = create_engine(DB_URL, echo=True)
     drop_tables(engine)
     create_tables(engine)
 
-    run_1(engine)
-    run_2(engine)
-    run_3(engine)
-    run_4(engine)
+    # Populating tables with sample data and checking the amount of `bar` items associated with `foo` object
+    populate_tables(engine)
+    with Session(engine) as session:
+        foo = session.query(Foo).first()
+        assert len(foo.bars) == 2
+        assert session.query(FooBar).count() == 2
+        assert session.query(Bar).count() == 2
+
+    # Removing the second item from the list of bars, item was not removed from DB
+    remove_second_item(engine)
+    with Session(engine) as session:
+        foo = session.query(Foo).first()
+        assert len(foo.bars) == 2
+        assert session.query(FooBar).count() == 2
+        assert session.query(Bar).count() == 2
+
+    # Removing the first item from the list of bars, item was removed from db
+    remove_first_item(engine)
+    with Session(engine) as session:
+        foo = session.query(Foo).first()
+        assert len(foo.bars) == 1
+        assert session.query(FooBar).count() == 1
+        assert session.query(Bar).count() == 2
 
 
 if __name__ == '__main__':
